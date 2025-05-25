@@ -1,0 +1,28 @@
+s = tf('s');
+
+% Parameters
+Ja = 0.03;
+Jm = 0.004;
+g = 9.81;
+l = 0.135;
+M = 0.6;
+k = 31;
+Dm = 0.002;  % Motor damping [Nms/rad]
+Da = 0.01;   % Arm damping [Nms/rad]
+
+% Full transfer function (motor torque to arm position)
+% Denominator: Jm*Ja*s^4 + (Ja*Dm + Jm*Da)*s^3 + (Ja*k + Jm*k + Dm*Da + M*g*l*Jm)*s^2 + (Dm*k + Da*k)*s + M*g*l*k
+numG = [k];
+denG = [Jm*Ja, Ja*Dm + Jm*Da, Ja*k + Jm*k + Dm*Da + M*g*l*Jm, Dm*k + Da*k, M*g*l*k];
+
+G = tf(numG, denG);
+step(G)
+title('Step Response of Flexible Joint Robot with Damping')
+
+figure;
+bode(G); grid on;
+title('Bode Plot of the Flexible Joint System');
+
+figure;
+pzmap(G);
+title('Pole-Zero Map');
