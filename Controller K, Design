@@ -1,0 +1,59 @@
+clear; clc;
+s = tf('s');
+
+% === Realistic Flexible Joint Robot Parameters ===
+Jm = 0.004;      % Motor inertia [kg.m^2]
+Ja = 0.03;       % Arm/load inertia [kg.m^2]
+Dm = 0.002;      % Motor damping [N.m.s/rad]
+Da = 0.01;       % Arm damping [N.m.s/rad]
+k = 50;          % Joint stiffness [N.m/rad]
+g = 9.81;        
+l = 0.135;       % Center of mass distance [m]
+M = 0.6;         % Arm mass [kg]
+Km = 1;          % Motor torque constant
+
+% === Transfer Function Derivation ===
+% Transfer function: theta_a(s)/Vm(s), where Vm = input voltage
+
+% State: G(s) = theta_a(s)/tau_m(s)
+numG = [k];
+denG = [Jm*Ja, (Jm*Da + Ja*Dm), (Jm*k + Ja*k + Dm*Da), (Dm*k + Da*k), k*0];
+
+G = tf(numG, denG);  % Plant: from motor torque to link position
+G.u = 'u2';
+G.y = 'y';
+
+% === Weighting Functions ===
+W1 = (5*s + 20)/(s + 0.01);  % Performance weight
+W1.u = 'y2';
+W1.y = 'y11';
+
+W2 = tf(0.1);                % Control effort weight
+W2.u = 'u2';
+W2.y = 'y12';
+
+% === Interconnection and Generalized Plant ===
+S = sumblk('y2 = u1 - y');  % y2 is tracking error
+P = connect(G, S, W1, W2, {'u1','u2'}, {'y11','y12','y2'});
+
+% === H-infinity Synthesis ===
+nmeas = 1;  % # of measurements
+ncon = 1;   % # of controls
+[K,CL,GAM] = hinfsyn(P,nmeas,ncon);
+
+% === Loop Analysis ===
+L = G*K;
+S = feedback(1,L);
+T = 1 - S;
+
+figure;
+bode(T,'-ok');
+grid on;
+title('Complementary Sensitivity Function');
+
+figure;
+step(feedback(G*K,1));
+title('Closed-loop Step Response');
+
+% Export controller to Simulink
+save('HinfController.mat','K')
